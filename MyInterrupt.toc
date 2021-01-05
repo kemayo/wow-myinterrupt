@@ -1,0 +1,8 @@
+## Interface: 90002
+## Title: MyInterrupt
+## Author: Kemayo
+## Notes: Notify yourself when you interrupt successfully
+## Version: @project-version@
+## LoadOnDemand: 0
+
+addon.lua
