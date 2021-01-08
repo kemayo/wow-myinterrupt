@@ -1,5 +1,5 @@
 ## Interface: 90002
-## Title: MyInterrupt
+## Title: My Interrupt
 ## Author: Kemayo
 ## Notes: Notify yourself when you interrupt successfully
 ## Version: @project-version@
