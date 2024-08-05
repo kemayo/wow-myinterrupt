@@ -4,6 +4,7 @@
 ## Notes: Notify yourself when you interrupt successfully
 ## Version: @project-version@
 ## LoadOnDemand: 0
+## SavedVariables: MyInterruptDB
 ## X-Curse-Project-ID: 434558
 
 addon.lua

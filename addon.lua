@@ -1,17 +1,61 @@
 local myname, ns = ...
 local myfullname = C_AddOns.GetAddOnMetadata(myname, "Title")
+local debuggable = C_AddOns.GetAddOnMetadata(myname, "Version") == '@'..'project-version@'
+
+local db
 
 -- entire debugging setup:
 -- MyInterrupt = ns
 -- /script MyInterrupt:Announce(48792, 237525, "Icebound Fortitude")
 
 -- event frame
-local frame = CreateFrame("Frame")
-frame:SetScript("OnEvent", function(self, event, ...)
-    self[event](self, ...)
+local f = CreateFrame('Frame')
+f:SetScript("OnEvent", function(_, event, ...)
+    ns[ns.events[event]](ns, event, ...)
 end)
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+f:Hide()
+ns.events = {}
+function ns:RegisterEvent(event, method)
+    self.events[event] = method or event
+    f:RegisterEvent(event)
+end
+function ns:UnregisterEvent(...) for i=1,select("#", ...) do f:UnregisterEvent((select(i, ...))) end end
+
+local function setDefaults(options, defaults)
+    setmetatable(options, { __index = function(t, k)
+        if type(defaults[k]) == "table" then
+            t[k] = setDefaults({}, defaults[k])
+            return t[k]
+        end
+        return defaults[k]
+    end, })
+    -- and add defaults to existing tables
+    for k, v in pairs(options) do
+        if defaults[k] and type(v) == "table" then
+            setDefaults(v, defaults[k])
+        end
+    end
+    return options
+end
+
+function ns:ADDON_LOADED(event, addon)
+    if addon == myname then
+        _G[myname.."DB"] = setDefaults(_G[myname.."DB"] or {}, {
+            backdrop = true, -- show a backdrop on the frame
+            empty = true, -- show when empty
+            announce = true,
+            log = true,
+        })
+        db = _G[myname.."DB"]
+        self:UnregisterEvent("ADDON_LOADED")
+
+        ns:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+        ns:RegisterEvent("PLAYER_REGEN_DISABLED")
+
+        ns:RefreshHistory()
+    end
+end
+ns:RegisterEvent("ADDON_LOADED")
 
 -- announce frame
 local announce = CreateFrame("Frame")
@@ -54,9 +98,11 @@ do
 
     function ns:Announce(spellID, iconID, name)
         if spellID and iconID and name then
-            announce.Icon:SetTexture(iconID)
-            announce.Label:SetText(name or UNKNOWN)
-            announce:Show()
+            if db.announce then
+                announce.Icon:SetTexture(iconID)
+                announce.Label:SetText(name or UNKNOWN)
+                announce:Show()
+            end
 
             ns:Log(spellID, iconID, name)
         end
@@ -66,7 +112,7 @@ end
 do
     local playerName = UnitName("player")
     local lastInterruptTime, lastSpellID
-    function frame:COMBAT_LOG_EVENT_UNFILTERED()
+    function ns:COMBAT_LOG_EVENT_UNFILTERED()
         local timeStamp, subEvent, _, _, sourceName, sourceFlags, _, _, destName, _, destRaidFlags, spellID, _, _, extraSpellID = CombatLogGetCurrentEventInfo()
 
         if subEvent ~= "SPELL_INTERRUPT" then return end
@@ -98,7 +144,7 @@ end
 
 -- history window
 
-local history = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+local history = CreateFrame("Frame", "MyInterruptLogFrame", UIParent, "BackdropTemplate")
 do
     history:SetPoint("CENTER")
     history:SetSize(180, 100)
@@ -113,6 +159,17 @@ do
     history:SetClampedToScreen(true)
     history:SetScript("OnDragStart", history.StartMoving)
     history:SetScript("OnDragStop", history.StopMovingOrSizing)
+    history:SetScript("OnMouseUp", function(w, button)
+        if button == "RightButton" then
+            return ns:ShowConfigMenu(w)
+        end
+        if debuggable and button == "MiddleButton" then
+            ns:Announce(unpack(GetRandomTableValue{
+                {48792, 237525, "Icebound Fortitude"},
+                {50977, 135766, "Death Gate"},
+            }))
+        end
+    end)
     local title = history:CreateFontString(nil, "ARTWORK", "GameFontHighlight");
     history.title = title
     title:SetJustifyH("CENTER")
@@ -143,7 +200,7 @@ do
             line:SetScript("OnLeave", GameTooltip_Hide)
             line:SetPropagateMouseClicks(true)
             -- line:SetScript("OnMouseUp", Line_OnClick)
-            line:EnableMouse(true)
+            -- line:EnableMouse(true)
             -- line:RegisterForClicks("AnyUp", "AnyDown")
         end
         line:Hide()
@@ -153,8 +210,12 @@ do
     history:Hide()
 
     local log = {}
-    local function refreshHistory()
+    function ns:RefreshHistory()
         history.linePool:ReleaseAll()
+
+        if not db.log then return history:Hide() end
+
+        if #log == 0 and not db.empty then return history:Hide() end
 
         local lastLine = title
         for i, entry in ipairs(log) do
@@ -170,8 +231,8 @@ do
             end
         end
 
-        if true or db.backdrop then
-            history:SetBackdropColor(0, 0, 0, .5)
+        if db.backdrop then
+            history:SetBackdropColor(0, 0, 0, .33)
             history:SetBackdropBorderColor(0, 0, 0, .5)
         else
             history:SetBackdropColor(0, 0, 0, 0)
@@ -182,14 +243,38 @@ do
     end
 
     function ns:Log(spellID, iconID, name)
-        table.insert(log, {spellID=spellID, iconID=iconID, name=name})
-        refreshHistory()
+        table.insert(log, 1, {spellID=spellID, iconID=iconID, name=name})
+        ns:RefreshHistory()
     end
-    function frame:PLAYER_REGEN_DISABLED()
+    function ns:PLAYER_REGEN_DISABLED()
         table.wipe(log)
-        refreshHistory()
+        ns:RefreshHistory()
     end
-
-    refreshHistory()
 end
 
+do
+    local menuFrame, menuData
+    local isChecked = function(key) return db[key] end
+    local toggleChecked = function(key)
+        db[key] = not db[key]
+        ns:RefreshHistory()
+    end
+    function ns:ShowConfigMenu(frame)
+        MenuUtil.CreateContextMenu(frame, function(owner, rootDescription)
+            rootDescription:SetTag("MENU_MYINTERRUPT_CONFIG")
+            rootDescription:CreateTitle(myfullname)
+            rootDescription:CreateCheckbox("Announce interrupts", isChecked, toggleChecked, "announce")
+            rootDescription:CreateCheckbox("Show log of interrupts", isChecked, toggleChecked, "log")
+            rootDescription:CreateCheckbox("Show a backdrop in the frame", isChecked, toggleChecked, "backdrop")
+            rootDescription:CreateCheckbox("Show while empty", isChecked, toggleChecked, "empty")
+        end)
+    end
+end
+
+_G["SLASH_".. myname:upper().."1"] = "/myinterrupt"
+SlashCmdList[myname:upper()] = function(msg)
+    msg = msg:trim()
+    if msg == "" then
+        ns:ShowConfigMenu()
+    end
+end
