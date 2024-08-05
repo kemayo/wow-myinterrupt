@@ -65,16 +65,17 @@ function frame:COMBAT_LOG_EVENT_UNFILTERED()
     lastInterruptTime, lastSpellID = timeStamp, spellID
 
     -- spellID is the spell you used to interrupt, extraSpellID should be the spell you interrupted
-    local spellName, _, spellTexture = GetSpellInfo(extraSpellID)
+    local spellInfo = C_Spell.GetSpellInfo(extraSpellID)
+    -- local spellName, _, spellTexture = GetSpellInfo(extraSpellID)
     if sourceName == playerName then
         -- me
-        announce.Icon:SetTexture(spellTexture)
-        announce.Label:SetText(spellName)
+        announce.Icon:SetTexture(spellInfo.iconID)
+        announce.Label:SetText(spellInfo.name or UNKNOWN)
         announce:Show()
     elseif bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) ~= 0 then
         -- my pet
-        announce.Icon:SetTexture(spellTexture)
-        announce.Label:SetText(TEXT_MODE_A_STRING_VALUE_TYPE:format(spellName, sourceName or "?")) -- "%s (%s)"
+        announce.Icon:SetTexture(spellInfo.iconID)
+        announce.Label:SetText(TEXT_MODE_A_STRING_VALUE_TYPE:format(spellInfo.name or UNKNOWN, sourceName or "?")) -- "%s (%s)"
         announce:Show()
     else
         -- Someone else, but we don't announce that

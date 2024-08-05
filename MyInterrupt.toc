@@ -1,4 +1,4 @@
-## Interface: 90002
+## Interface: 110002, 110000
 ## Title: My Interrupt
 ## Author: Kemayo
 ## Notes: Notify yourself when you interrupt successfully
