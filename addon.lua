@@ -141,6 +141,7 @@ do
             line.name:SetMaxLines(1)
             line:SetScript("OnEnter", LineTooltip)
             line:SetScript("OnLeave", GameTooltip_Hide)
+            line:SetPropagateMouseClicks(true)
             -- line:SetScript("OnMouseUp", Line_OnClick)
             line:EnableMouse(true)
             -- line:RegisterForClicks("AnyUp", "AnyDown")
