@@ -45,12 +45,15 @@ function ns:ADDON_LOADED(event, addon)
             empty = true, -- show when empty
             announce = true,
             log = true,
+            clearlog_entercombat = true,
+            clearlog_leavecombat = false,
         })
         db = _G[myname.."DB"]
         self:UnregisterEvent("ADDON_LOADED")
 
         ns:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
         ns:RegisterEvent("PLAYER_REGEN_DISABLED")
+        ns:RegisterEvent("PLAYER_REGEN_ENABLED")
 
         ns:RefreshHistory()
     end
@@ -198,7 +201,6 @@ do
             line.name:SetMaxLines(1)
             line:SetScript("OnEnter", LineTooltip)
             line:SetScript("OnLeave", GameTooltip_Hide)
-            line:SetPropagateMouseClicks(true)
             -- line:SetScript("OnMouseUp", Line_OnClick)
             -- line:EnableMouse(true)
             -- line:RegisterForClicks("AnyUp", "AnyDown")
@@ -228,6 +230,11 @@ do
                 line:SetPoint("TOPRIGHT", lastLine, "BOTTOMRIGHT")
                 line:Show()
                 lastLine = line
+
+                if not InCombatLockdown() then
+                    -- this is protected, annoyingly
+                    line:SetPropagateMouseClicks(true)
+                end
             end
         end
 
@@ -244,11 +251,22 @@ do
 
     function ns:Log(spellID, iconID, name)
         table.insert(log, 1, {spellID=spellID, iconID=iconID, name=name})
-        ns:RefreshHistory()
+        self:RefreshHistory()
     end
-    function ns:PLAYER_REGEN_DISABLED()
+    function ns:ClearLog()
         table.wipe(log)
-        ns:RefreshHistory()
+        self:RefreshHistory()
+    end
+
+    function ns:PLAYER_REGEN_DISABLED()
+        if db.clear_entercombat then
+            self:ClearLog()
+        end
+    end
+    function ns:PLAYER_REGEN_ENABLED()
+        if db.clear_leavecombat then
+            self:ClearLog()
+        end
     end
 end
 
@@ -267,6 +285,10 @@ do
             rootDescription:CreateCheckbox("Show log of interrupts", isChecked, toggleChecked, "log")
             rootDescription:CreateCheckbox("Show a backdrop in the frame", isChecked, toggleChecked, "backdrop")
             rootDescription:CreateCheckbox("Show while empty", isChecked, toggleChecked, "empty")
+            local clear = rootDescription:CreateButton("Clear log...")
+            clear:CreateCheckbox("When entering combat", isChecked, toggleChecked, "clearlog_entercombat")
+            clear:CreateCheckbox("When leaving combat", isChecked, toggleChecked, "clearlog_leavecombat")
+            clear:CreateButton("Right now!", function() ns:ClearLog() end)
         end)
     end
 end
