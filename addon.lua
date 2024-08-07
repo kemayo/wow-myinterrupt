@@ -259,12 +259,12 @@ do
     end
 
     function ns:PLAYER_REGEN_DISABLED()
-        if db.clear_entercombat then
+        if db.clearlog_entercombat then
             self:ClearLog()
         end
     end
     function ns:PLAYER_REGEN_ENABLED()
-        if db.clear_leavecombat then
+        if db.clearlog_leavecombat then
             self:ClearLog()
         end
     end
