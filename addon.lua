@@ -99,15 +99,15 @@ do
     end)
     announce:Hide()
 
-    function ns:Announce(spellID, iconID, name)
-        if spellID and iconID and name then
+    function ns:Announce(spellID, iconID, spellName, targetName)
+        if spellID and iconID and spellName then
             if db.announce then
                 announce.Icon:SetTexture(iconID)
-                announce.Label:SetText(name or UNKNOWN)
+                announce.Label:SetText(spellName or UNKNOWN)
                 announce:Show()
             end
 
-            ns:Log(spellID, iconID, name)
+            ns:Log(spellID, iconID, spellName, targetName)
         end
     end
 end
@@ -131,13 +131,14 @@ do
         -- local spellName, _, spellTexture = GetSpellInfo(extraSpellID)
         if sourceName == playerName then
             -- me
-            ns:Announce(spellInfo.spellID, spellInfo.iconID, spellInfo.name)
+            ns:Announce(spellInfo.spellID, spellInfo.iconID, spellInfo.name ,destName)
         elseif bit.band(sourceFlags, COMBATLOG_OBJECT_AFFILIATION_MINE) ~= 0 then
             -- my pet
             ns:Announce(
                 spellInfo.spellID,
                 spellInfo.iconID,
-                TEXT_MODE_A_STRING_VALUE_TYPE:format(spellInfo.name or UNKNOWN, sourceName or "?") -- "%s (%s)"
+                TEXT_MODE_A_STRING_VALUE_TYPE:format(spellInfo.name or UNKNOWN, sourceName or "?"), -- "%s (%s)"
+                destName
             )
         else
             -- Someone else, but we don't announce that
@@ -168,8 +169,8 @@ do
         end
         if debuggable and button == "MiddleButton" then
             ns:Announce(unpack(GetRandomTableValue{
-                {48792, 237525, "Icebound Fortitude"},
-                {50977, 135766, "Death Gate"},
+                {48792, 237525, "Icebound Fortitude", "The Lich King"},
+                {50977, 135766, "Death Gate", "Kevin"},
             }))
         end
     end)
@@ -249,8 +250,8 @@ do
         history:Show()
     end
 
-    function ns:Log(spellID, iconID, name)
-        table.insert(log, 1, {spellID=spellID, iconID=iconID, name=name})
+    function ns:Log(spellID, iconID, spellName, targetName)
+        table.insert(log, 1, {spellID=spellID, iconID=iconID, name=spellName, target=targetName})
         self:RefreshHistory()
     end
     function ns:ClearLog()
