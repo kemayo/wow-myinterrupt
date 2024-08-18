@@ -151,7 +151,7 @@ end
 local history = CreateFrame("Frame", "MyInterruptLogFrame", UIParent, "BackdropTemplate")
 do
     history:SetPoint("CENTER")
-    history:SetSize(180, 100)
+    history:SetSize(150, 100)
     history:SetBackdrop({
         edgeFile = [[Interface\Buttons\WHITE8X8]],
         bgFile = [[Interface\Buttons\WHITE8X8]],
@@ -181,6 +181,23 @@ do
     title:SetPoint("TOPLEFT", 0, -4)
     title:SetPoint("TOPRIGHT", 0, -4)
     title:SetText(myfullname)
+
+    history:SetResizable(true)
+    history:SetResizeBounds(100, 100, 300, 1000)
+    local resize = CreateFrame("Button", nil, history)
+    resize:EnableMouse(true)
+    resize:SetPoint("BOTTOMRIGHT", 1, -1)
+    resize:SetSize(16,16)
+    resize:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
+    resize:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight", "ADD")
+    resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+    resize:SetScript("OnMouseDown", function()
+        history:StartSizing("BOTTOMRIGHT")
+    end)
+    resize:SetScript("OnMouseUp", function()
+        history:StopMovingOrSizing("BOTTOMRIGHT")
+    end)
+    history.resize = resize
 
     local function LineTooltip(line)
         if not line.data then return end
