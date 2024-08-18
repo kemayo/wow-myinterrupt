@@ -183,13 +183,37 @@ do
     title:SetText(myfullname)
 
     local function LineTooltip(line)
-        if not line.spellID then return end
+        if not line.data then return end
         local anchor = (line:GetCenter() < (UIParent:GetWidth() / 2)) and "ANCHOR_RIGHT" or "ANCHOR_LEFT"
         GameTooltip:SetOwner(line, anchor, 0, -60)
-        GameTooltip:SetSpellByID(line.spellID)
+        GameTooltip:SetSpellByID(line.data.spellID)
+        GameTooltip:AddDoubleLine(SPELL_TARGET_CENTER_CASTER, line.data.target)
         GameTooltip:Show()
     end
-    history.linePool = CreateFramePool("Frame", history, nil, function(pool, line)
+
+    -- scrollframe with dataprovider:
+
+    local log = {}
+    local dataProvider = CreateIndexRangeDataProvider(0)
+
+    local container = CreateFrame("Frame", nil, history)
+    container:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, 0)
+    container:SetPoint("BOTTOMRIGHT")
+
+    local scrollBox = CreateFrame("Frame", nil, container, "WowScrollBoxList")
+    -- setpoint handled by manager below
+    container.scrollBox = scrollBox
+
+    local scrollBar = CreateFrame("EventFrame", nil, container, "MinimalScrollBar")
+    scrollBar:SetPoint("TOPLEFT", scrollBox, "TOPRIGHT", 4, -3)
+    scrollBar:SetPoint("BOTTOMLEFT", scrollBox, "BOTTOMRIGHT", 4, 3)
+    scrollBar:SetHideTrackIfThumbExceedsTrack(true)
+    container.scrollBar = scrollBar
+
+    local scrollView = CreateScrollBoxListLinearView()
+    scrollView:SetDataProvider(dataProvider)
+    scrollView:SetElementExtent(20)  -- Fixed height for each row; required as we're not using XML.
+    scrollView:SetElementInitializer("Frame", function(line, index)
         if not line.icon then
             line:SetHeight(20)
             line.icon = line:CreateTexture()
@@ -202,42 +226,41 @@ do
             line.name:SetMaxLines(1)
             line:SetScript("OnEnter", LineTooltip)
             line:SetScript("OnLeave", GameTooltip_Hide)
-            -- line:SetScript("OnMouseUp", Line_OnClick)
-            -- line:EnableMouse(true)
-            -- line:RegisterForClicks("AnyUp", "AnyDown")
         end
-        line:Hide()
-        line:ClearAllPoints()
+
+        local data = log[index]
+
+        line.data = data
+        line.icon:SetTexture(data.iconID)
+        line.name:SetText(data.name)
+
+        if not InCombatLockdown() then
+            -- this is protected, annoyingly
+            line:SetPropagateMouseClicks(true)
+        end
     end)
+    container.scrollView = scrollView
+
+    ScrollUtil.InitScrollBoxWithScrollBar(scrollBox, scrollBar, scrollView)
+    ScrollUtil.AddManagedScrollBarVisibilityBehavior(scrollBox, scrollBar,
+        {  -- with bar
+            CreateAnchor("TOPLEFT", container),
+            CreateAnchor("BOTTOMRIGHT", container, "BOTTOMRIGHT", -18, 0),
+        },
+        { -- without bar
+            CreateAnchor("TOPLEFT", container),
+            CreateAnchor("BOTTOMRIGHT", container, "BOTTOMRIGHT", -4, 0),
+        }
+    )
 
     history:Hide()
 
-    local log = {}
     function ns:RefreshHistory()
-        history.linePool:ReleaseAll()
-
         if not db.log then return history:Hide() end
 
         if #log == 0 and not db.empty then return history:Hide() end
 
-        local lastLine = title
-        for i, entry in ipairs(log) do
-            if i <= 4 then
-                local line = history.linePool:Acquire()
-                line.spellID = entry.spellID
-                line.icon:SetTexture(entry.iconID)
-                line.name:SetText(entry.name)
-                line:SetPoint("TOPLEFT", lastLine, "BOTTOMLEFT")
-                line:SetPoint("TOPRIGHT", lastLine, "BOTTOMRIGHT")
-                line:Show()
-                lastLine = line
-
-                if not InCombatLockdown() then
-                    -- this is protected, annoyingly
-                    line:SetPropagateMouseClicks(true)
-                end
-            end
-        end
+        scrollBox:Rebuild(ScrollBoxConstants.RetainScrollPosition)
 
         if db.backdrop then
             history:SetBackdropColor(0, 0, 0, .33)
@@ -252,10 +275,12 @@ do
 
     function ns:Log(spellID, iconID, spellName, targetName)
         table.insert(log, 1, {spellID=spellID, iconID=iconID, name=spellName, target=targetName})
+        dataProvider:SetSize(#log)
         self:RefreshHistory()
     end
     function ns:ClearLog()
         table.wipe(log)
+        dataProvider:SetSize(#log)
         self:RefreshHistory()
     end
 
