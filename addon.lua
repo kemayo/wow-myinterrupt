@@ -45,7 +45,7 @@ function ns:ADDON_LOADED(event, addon)
             empty = true, -- show when empty
             announce = true,
             log = true,
-            clearlog_entercombat = true,
+            clearlog_entercombat = false,
             clearlog_leavecombat = false,
         })
         db = _G[myname.."DB"]
@@ -163,7 +163,7 @@ do
     history:SetClampedToScreen(true)
     history:SetScript("OnDragStart", history.StartMoving)
     history:SetScript("OnDragStop", history.StopMovingOrSizing)
-    history:SetScript("OnMouseUp", function(w, button)
+    local function OnMouseUp(_, button)
         if button == "RightButton" then
             return ns:ShowConfigMenu(w)
         end
@@ -173,7 +173,8 @@ do
                 {50977, 135766, "Death Gate", "Kevin"},
             }))
         end
-    end)
+    end
+    history:SetScript("OnMouseUp", OnMouseUp)
     local title = history:CreateFontString(nil, "ARTWORK", "GameFontHighlight");
     history.title = title
     title:SetJustifyH("CENTER")
@@ -241,8 +242,13 @@ do
             line.name:SetPoint("RIGHT")
             line.name:SetJustifyH("LEFT")
             line.name:SetMaxLines(1)
+            line.divider = line:CreateTexture()
+            line.divider:SetColorTexture(1, 1, 0, 0.5)
+            line.divider:SetPoint("TOPLEFT")
+            line.divider:SetPoint("TOPRIGHT")
             line:SetScript("OnEnter", LineTooltip)
             line:SetScript("OnLeave", GameTooltip_Hide)
+            line:SetScript("OnMouseUp", OnMouseUp)
         end
 
         local data = log[index]
@@ -250,10 +256,15 @@ do
         line.data = data
         line.icon:SetTexture(data.iconID)
         line.name:SetText(data.name)
+        line.divider:Hide()
 
         if not InCombatLockdown() then
             -- this is protected, annoyingly
             line:SetPropagateMouseClicks(true)
+        end
+
+        if log[index - 1] and log[index - 1].combatID ~= data.combatID then
+            line.divider:Show()
         end
     end)
     container.scrollView = scrollView
@@ -291,7 +302,13 @@ do
     end
 
     function ns:Log(spellID, iconID, spellName, targetName)
-        table.insert(log, 1, {spellID=spellID, iconID=iconID, name=spellName, target=targetName})
+        table.insert(log, 1, {
+            spellID=spellID,
+            iconID=iconID,
+            name=spellName,
+            target=targetName,
+            combatID=ns.combatID,
+        })
         dataProvider:SetSize(#log)
         self:RefreshHistory()
     end
@@ -301,7 +318,9 @@ do
         self:RefreshHistory()
     end
 
+    ns.combatID = 0
     function ns:PLAYER_REGEN_DISABLED()
+        ns.combatID = ns.combatID + 1
         if db.clearlog_entercombat then
             self:ClearLog()
         end
@@ -310,6 +329,7 @@ do
         if db.clearlog_leavecombat then
             self:ClearLog()
         end
+        self:RefreshHistory() -- sets up the propagation properly
     end
 end
 
