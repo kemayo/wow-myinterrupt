@@ -229,7 +229,6 @@ do
     container.scrollBar = scrollBar
 
     local scrollView = CreateScrollBoxListLinearView()
-    scrollView:SetDataProvider(dataProvider)
     scrollView:SetElementExtent(20)  -- Fixed height for each row; required as we're not using XML.
     scrollView:SetElementInitializer("Frame", function(line, index)
         if not line.icon then
@@ -267,6 +266,7 @@ do
             line.divider:Show()
         end
     end)
+    scrollView:SetDataProvider(dataProvider)
     container.scrollView = scrollView
 
     ScrollUtil.InitScrollBoxWithScrollBar(scrollBox, scrollBar, scrollView)
